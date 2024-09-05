@@ -25,7 +25,7 @@ DateTime rtc_now;
 char nameoftheday[7][10] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 char month_name[12][10] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 char hr[3], min[3], sec[3], date_char[30];
-char beep_case [4][6] = {"6:35", "6:37", "6:39", "6:41"};
+char beep_case [4][6] = {"7:13", "7:15", "7:17", "7:19"};
 int i = 32 + 5, beep_i = 0, beep_limit = 110;//4.5s
 int switch_state = 1;
 
@@ -80,7 +80,6 @@ void dispTime() {
   disp.selectFont(ArialBlackFont16);
 
   String(rtc_now.twelveHour()).toCharArray(hr, 3);
-  disp.drawString(1, 1, hr, 2, GRAPHICS_NORMAL);
   if (rtc_now.twelveHour() < 10) {
     disp.drawString(1, 1, "0", 1, GRAPHICS_NORMAL);
     disp.drawString(10, 1, hr, 1, GRAPHICS_NORMAL);
@@ -166,7 +165,7 @@ void beep_switch() {
   if (Serial.available() > 0) {
     char d = Serial.read();
     //    Serial.println(d);
-    if (!beep_mode & d == 'E') {
+    if (!beep_mode & d == 'E') {//E for EXAM MODE
       beep_mode = true;
 
       switch_state = 3;
@@ -176,7 +175,7 @@ void beep_switch() {
       disp.drawString(5, 0, "EXAM", 4, GRAPHICS_NORMAL);
       disp.drawString(5, 9, "MODE", 4, GRAPHICS_NORMAL);
 
-    } else if (beep_mode & d == 'N') {
+    } else if (beep_mode & d == 'N') {//N for NORMAL MODE
       beep_mode = false;
       PORTD = 0;
       switch_state = 3;
