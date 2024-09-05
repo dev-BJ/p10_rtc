@@ -200,7 +200,7 @@ void buzzer_switch() {
         beep_mode = false;
         prev_date = beep_time;
         beep_limit = 110;
-        Serial.println("BEEP ON 1");
+        //        Serial.println("BEEP ON 1");
         PORTD = 0x20;
         break;
         //        Serial.print("Found: ");
@@ -217,13 +217,13 @@ void buzzer_ctrl() {
       if (beep_i == 0) {
         PORTD = 0;
         beep_limit = 98;
-        Serial.println("BEEP OFF 1");
+        //        Serial.println("BEEP OFF 1");
       } else if (beep_i == 1) {
         PORTD = 0x20;
-        Serial.println("BEEP ON 2 AND BEEP_I 1");
+        //        Serial.println("BEEP ON 2 AND BEEP_I 1");
       } else if (beep_i == 2) {
         PORTD = 0;
-        Serial.println("BEEP OFF 2 AND BEEP_I 2");
+        //        Serial.println("BEEP OFF 2 AND BEEP_I 2");
         beep_mode = true;
         buzzer_mode = false;
         beep_i = 0;
