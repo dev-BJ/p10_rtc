@@ -9,6 +9,7 @@
 #include <SystemFont5x7.h>
 
 #include <RTClib.h>
+#include <util/delay.h>
 
 #define ROW 1
 #define COL 1
@@ -16,27 +17,30 @@
 DMD disp(ROW, COL);
 RTC_DS3231 rtc;
 
-volatile unsigned int update_count = 0;
-volatile unsigned int switch_count = 0;
-int switch_limit = 3000; //123s
-bool switch_state = true, mode = false, beep_mode = false;
+volatile unsigned int update_count = 0, switch_count = 0, beep_count = 0;
+int switch_limit = 3000; //123s, Time/Date switch delay
+bool beep_mode = false, buzzer_mode = false;
+String prev_date;
 DateTime rtc_now;
-char nameoftheday[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-char month_name[12][12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
-char hr[3], min[3], sec[3], date_char[26];
-char beep_case [4][6] = {"12:10", "11:55", "3:55", "4:55"};
-int i = 32 + 5, beep_i = 0, beep_case_i = 0;
+char nameoftheday[7][10] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+char month_name[12][10] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+char hr[3], min[3], sec[3], date_char[30];
+char beep_case [4][6] = {"6:8", "6:10", "6:12", "6:14"};
+int i = 32 + 5, beep_i = 0, beep_limit = 110;//4.5s
+int switch_state = 1;
 
 int main() {
 
+  Serial.begin(9600);
   TCCR1B = 0x01; //clock source with no prescaler
   TIMSK1 = 0x01; //Enable Timer1 interrupt
+  DDRD |= 0x20;
+  //PORTD |= 0x20;
 
   sei();
-  Serial.begin(9600);
-  Serial.println("WORKING");
   disp.scanDisplayBySPI();
-  disp.clearScreen(true);   //true is normal (all pixels off), false is negative (all pixels on);
+  disp.clearScreen(true);
+
 
   if (!rtc.begin()) {
     //warn("NO RTC");
@@ -49,27 +53,13 @@ int main() {
   //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   while (1) {
-    //Serial.println("loop");
-    if (update_count >= 24) { //1s non block delay
-    rtc_now = rtc.now();
-    //Serial.println(rtc_now.timestamp());
-    if (switch_state) dispTime();
-    else dispDate();
-    update_count = 0;
-  }
-    normal();
-//    exam();
+    normal_mode();
 
-    if (Serial.available()) {
-      Serial.println(Serial.readString());
-      if (Serial.readString() == "EXAM_MODE") {
-        mode = true;
-      }
-      else if (Serial.readString() == "RESET_MODE") {
-        mode = false;
-      }
-    }
+    beep_switch();
 
+    buzzer_switch();
+
+    buzzer_ctrl();
   }
   return 0;
 }
@@ -78,7 +68,7 @@ ISR(TIMER1_OVF_vect) {
   disp.scanDisplayBySPI();
   update_count++;
   switch_count++;
-  beep_i++;
+  beep_count++;
 }
 
 void warn(char *warn) {
@@ -124,10 +114,10 @@ void dispDate() {
   i--;
   String date = "";
   //Serial.println(nameoftheday[rtc_now.dayOfTheWeek()]);
-  date += String(nameoftheday[rtc_now.dayOfTheWeek()]) + " ";
-  date += String(rtc_now.day()) + " ";
-  date += String(month_name[rtc_now.month()]) + " ";
-  date += String(rtc_now.year());
+  date += String(nameoftheday[rtc_now.dayOfTheWeek()]) + " ";//11 char
+  date += String(rtc_now.day()) + " ";//2 char
+  date += String(month_name[rtc_now.month()]) + " ";//11 char
+  date += String(rtc_now.year());//4 char
   date.toCharArray(date_char, date.length() + 2);
   //Serial.println(date);
   date = "";
@@ -140,50 +130,107 @@ void dispDate() {
   }
 }
 
-void normal() {
+void normal_mode() { //Time/Date display
+  //1s delay (Non block delay)
+  if (update_count >= 24) {
+    rtc_now = rtc.now();
+    //Serial.println(rtc_now.timestamp());
+    if (switch_state == 1) dispTime();
+    else if (switch_state == 2) dispDate();
+    update_count = 0;
+  }
 
-  if (switch_count == switch_limit) {
-    if (switch_state) {
+  //Switch between Time/Date display
+  if (switch_count >= switch_limit) {
+    if (switch_state == 1) {
       i = 32 + 5;
-      switch_state = false;
-      switch_limit = 4000;//123s
+      switch_state = 2;
+      switch_limit = 4000;//164s
       disp.clearScreen(true);
     }
-    else {
-      switch_state = true;
-      switch_limit = 6000;//185s
+    else if (switch_state == 2) {
+      switch_state = 1;
+      switch_limit = 8000;//328s
+      disp.clearScreen(true);
+    } else if (switch_state == 3) {
+      switch_state = 1;
+      switch_limit = 8000;//328s
       disp.clearScreen(true);
     }
     switch_count = 0;
   }
 }
 
-//void exam() {
-//
-//  String beep_case_var = "";
-//  if (mode) {
-//    beep_case_var += String(rtc_now.twelveHour()) + ":" + String(rtc_now.minute());
-//    for (int y = 0; y < 4; y++) {
-//      if (String(beep_case[y][6]) == beep_case_var) {
-//        //ON Beep
-//        Serial.println("Beep ON");
-//        beep_mode = true;
-//        beep_case_i = 0;
-//      }
-//    }
-//  }
-//
-//  if ((beep_i == 49) & beep_mode) {
-//    //OFF Beep
-//    Serial.println("Beep OFF");
-//    if (beep_case_i == 1) {
-//      //ON Beep
-//      Serial.println("Beep ON");
-//      //beep_mode = false;
-//    }
-//    if (beep_case_i == 2) beep_mode = false;
-//
-//    beep_case_i++;
-//    beep_i = 0;
-//  }
-//}
+void beep_switch() {
+  //Serial.println("working");
+  if (Serial.available() > 0) {
+    char d = Serial.read();
+    //    Serial.println(d);
+    if (d == 'E') {
+      beep_mode = true;
+
+      switch_state = 3;
+      switch_limit = 1800; //73.8s
+      disp.clearScreen(true);
+      disp.selectFont(SystemFont5x7);
+      disp.drawString(5, 0, "EXAM", 4, GRAPHICS_NORMAL);
+      disp.drawString(5, 9, "MODE", 4, GRAPHICS_NORMAL);
+
+    } else if (d == 'N') {
+      beep_mode = false;
+      PORTD = 0;
+      switch_state = 3;
+      switch_limit = 1800; //73.8s
+      disp.clearScreen(true);
+      disp.selectFont(SystemFont5x7);
+      disp.drawString(0, 0, "NORMAL", 6, GRAPHICS_NORMAL);
+      disp.drawString(5, 9, "MODE", 4, GRAPHICS_NORMAL);
+
+    }
+  }
+}
+
+void buzzer_switch() {
+  String beep_time;
+  beep_time += String(rtc_now.twelveHour()) + ":" + String(rtc_now.minute());
+  //  Serial.println(beep_time);
+  if (beep_mode & (prev_date != beep_time)) {
+    for (int i = 0; i <= 3; i++) {
+      if (beep_time == String(beep_case[i])) {
+        buzzer_mode = true;
+        beep_mode = false;
+        prev_date = beep_time;
+        beep_limit = 110;
+        Serial.println("BEEP ON 1");
+        PORTD = 0x20;
+        break;
+        //        Serial.print("Found: ");
+        //        Serial.println(String(beep_case[i]));
+      }
+    }
+  }
+  beep_time = "";
+}
+
+void buzzer_ctrl() {
+  if (beep_count >= beep_limit) {//4s delay
+    if (buzzer_mode) {
+      if (beep_i == 0) {
+        PORTD = 0;
+        beep_limit = 98;
+        Serial.println("BEEP OFF 1");
+      } else if (beep_i == 1) {
+        PORTD = 0x20;
+        Serial.println("BEEP ON 2 AND BEEP_I 1");
+      } else if (beep_i == 2) {
+        PORTD = 0;
+        Serial.println("BEEP OFF 2 AND BEEP_I 2");
+        beep_mode = true;
+        buzzer_mode = false;
+        beep_i = 0;
+      }
+      if (buzzer_mode)beep_i++;
+    }
+    beep_count = 0;
+  }
+}
