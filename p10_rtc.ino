@@ -141,9 +141,9 @@ void dispDate() {
   i--;
   String date = "";
   //Serial.println(nameoftheday[rtc_now.dayOfTheWeek()]);
-//  date += String(nameoftheday[rtc_now.dayOfTheWeek()]) + " ";//11 char
+  //  date += String(nameoftheday[rtc_now.dayOfTheWeek()]) + " ";//11 char
   date += String(rtc_now.day()) + " ";//2 char
-  date += String(month_name[rtc_now.month()]) + " ";//4 char
+  date += String(month_name[(rtc_now.month() - 1)]) + " "; //4 char
   date += String(rtc_now.year());//4 char
   date.toCharArray(date_char, date.length() + 2);
   //Serial.println(date);
@@ -196,7 +196,7 @@ void serial_switch() {
   //Serial.println("working");
   if (Serial.available() > 0) {
     char d = Serial.read();
-//    Serial.println(d);
+    //    Serial.println(d);
     if (!beep_mode & d == 'E') {//E for EXAM MODE
       beep_mode = true;
       switch_state = 3;
